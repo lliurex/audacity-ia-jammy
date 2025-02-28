@@ -1,0 +1,225 @@
+From: cless <hectorgh@gmail.com>
+Date: Fri, 28 Feb 2025 15:43:11 +0100
+Subject: adding openvino build
+
+---
+ CMakeLists.txt.mod-openvino | 102 ++++++++++++++++++++++++++++++++++++++++++++
+ CMakeLists.txt.modules      |  27 ++++++++++++
+ openvino.sh                 |  65 ++++++++++++++++++++++++++++
+ 3 files changed, 194 insertions(+)
+ create mode 100644 CMakeLists.txt.mod-openvino
+ create mode 100644 CMakeLists.txt.modules
+ create mode 100755 openvino.sh
+
+diff --git a/CMakeLists.txt.mod-openvino b/CMakeLists.txt.mod-openvino
+new file mode 100644
+index 0000000..e158e84
+--- /dev/null
++++ b/CMakeLists.txt.mod-openvino
+@@ -0,0 +1,102 @@
++# Copyright (C) 2023 Intel Corporation
++# SPDX-License-Identifier: GPL-3.0-only
++
++set( TARGET mod-openvino )
++
++find_package(OpenVINO REQUIRED COMPONENTS Runtime)
++
++message("ENV LIBTORCH_ROOTDIR = $ENV{LIBTORCH_ROOTDIR}")
++
++set(LIBTORCH_ROOTDIR "/tmp/openvino/libtorch/libtorch")
++
++set(CMAKE_PREFIX_PATH "${LIBTORCH_ROOTDIR}/share/cmake/Torch")
++
++find_package(Torch REQUIRED)
++message("torch libraries = ${TORCH_LIBRARIES}")
++
++set(WHISPERCPP_ROOTDIR "/tmp/openvino/whisper-build/installed")
++find_library(whisper NAMES whisper HINTS ${WHISPERCPP_ROOTDIR}/lib/static ${WHISPERCPP_ROOTDIR}/lib )
++include_directories(${WHISPERCPP_ROOTDIR}/include )
++message("whisper library = ${whisper}")
++
++#for musicgen
++#whether ITT is enabled or not, include ittutils.
++# This allows the project source files to unconditionally include <ittutils.h>
++# That header file will implement the preprocessor logic to *actually* enable ITT or not.
++include_directories( ittutils )
++
++find_package(OpenCL REQUIRED)
++
++add_subdirectory(musicgen)
++include_directories(musicgen)
++
++set( NOISE_SUPPRESSION_SOURCES
++      OVNoiseSuppression.cpp
++      OVNoiseSuppression.h
++      noise_suppression/noise_suppression_model.h
++      noise_suppression/noise_suppression_omz_model.h
++      noise_suppression/noise_suppression_omz_model.cpp
++      noise_suppression/noise_suppression_df_model.h
++      noise_suppression/noise_suppression_df_model.cpp
++      noise_suppression/deepfilternet/deepfilter.cpp
++      noise_suppression/deepfilternet/deepfilter.h
++      noise_suppression/deepfilternet/multiframe.h
++      noise_suppression/deepfilternet/multiframe.cpp
++      noise_suppression/deepfilternet/dfnet_model.h
++      noise_suppression/deepfilternet/dfnet_model.cpp
++)
++
++include_directories(noise_suppression)
++include_directories(noise_suppression/deepfilternet)
++
++set( AUDIO_SR_SOURCES 
++     OVAudioSR.cpp
++     OVAudioSR.h
++     audio_sr/audiosr_common.h
++     audio_sr/autoencoder.cpp
++     audio_sr/autoencoder.h
++     audio_sr/ddim_sampler.cpp
++     audio_sr/ddim_sampler.h
++     audio_sr/ddpm_latent_diffusion.cpp
++     audio_sr/ddpm_latent_diffusion.h
++     audio_sr/distributions.h
++     audio_sr/audio_sr.h
++     audio_sr/audio_sr.cpp
++)
++
++include_directories(audio_sr)
++
++set( SOURCES
++      ${NOISE_SUPPRESSION_SOURCES}
++      ${AUDIO_SR_SOURCES}
++      OVMusicSeparation.cpp
++      OVMusicSeparation.h
++      OVMusicGenerationLLM.cpp
++      OVMusicGenerationLLM.h
++      OVWhisperTranscription.cpp
++      OVWhisperTranscription.h
++      htdemucs.cpp
++      htdemucs.h
++      ${OV_MUSICGEN_SOURCES}
++      OpenVINO.cpp
++      OVStringUtils.h
++)
++
++set( LIBRARIES
++   PRIVATE
++      Audacity
++      openvino::runtime
++	   OpenCL::OpenCL
++      ${TORCH_LIBRARIES}
++      ${whisper}
++)
++
++audacity_module( ${TARGET} "${SOURCES}" "${LIBRARIES}" "" "" )
++
++if(MSVC)
++   target_compile_options(${TARGET} PRIVATE
++   /analyze /sdl /Gy /DYNAMICBASE /GS /D_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING /D_CRT_SECURE_NO_WARNINGS
++   )
++endif()
++
++
+diff --git a/CMakeLists.txt.modules b/CMakeLists.txt.modules
+new file mode 100644
+index 0000000..730f6b5
+--- /dev/null
++++ b/CMakeLists.txt.modules
+@@ -0,0 +1,27 @@
++#[[
++A directory of directories of module targets.  Sub-directories group modules in
++some common area of functionality, such as import/export, and each group becomes
++a cluster in the modules.dot file generated at configuration time.
++]]
++
++# Include the modules that we'll build
++
++# The list of module sub-folders is ordered so that each folder occurs after any
++# others that it depends on
++set( FOLDERS
++   etc
++   import-export
++   track-ui
++   scripting
++   nyquist
++   sharing
++   mod-openvino
++)
++
++foreach( FOLDER ${FOLDERS} )
++   add_subdirectory("${FOLDER}")
++endforeach()
++
++#propagate collected edges and subgraphs up to root CMakeLists.txt
++set( GRAPH_EDGES "${GRAPH_EDGES}" PARENT_SCOPE )
++set( GRAPH_SUBGRAPHS "${GRAPH_SUBGRAPHS}" PARENT_SCOPE )
+diff --git a/openvino.sh b/openvino.sh
+new file mode 100755
+index 0000000..0e0162e
+--- /dev/null
++++ b/openvino.sh
+@@ -0,0 +1,65 @@
++#!/bin/bash
++
++# sudo apt install python3-pip python3-pip-whl python3-setuptools python3-setuptools-whl python3-venv python3-wheel python3.12-venv ocl-icd-opencl-dev
++CURRENT_DIR=$PWD
++BASE_DIR="/tmp/openvino"
++rm -rf $BASE_DIR
++mkdir -p $BASE_DIR
++cd $BASE_DIR
++mkdir openvino_toolkit
++cd openvino_toolkit
++wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2024.6/linux/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64.tgz
++tar xvf l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64.tgz
++
++cd l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64
++OPENVIVO_TOOLKIT_DIR=$PWD
++
++wget https://storage.openvinotoolkit.org/repositories/openvino_tokenizers/packages/2024.6.0.0/openvino_tokenizers_ubuntu22_2024.6.0.0_x86_64.tar.gz
++tar xzvf openvino_tokenizers_ubuntu22_2024.6.0.0_x86_64.tar.gz
++
++cd ..
++cd ..
++
++mkdir libtorch
++cd libtorch
++wget https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.4.1%2Bcpu.zip
++unzip libtorch-cxx11-abi-shared-with-deps-2.4.1+cpu.zip
++LIBTORCH_DIR=$PWD/libtorch
++
++cd ..
++
++
++git clone https://github.com/ggerganov/whisper.cpp
++cd whisper.cpp
++git checkout v1.5.4
++cd ..
++mkdir whisper-build
++cd whisper-build
++
++source $OPENVIVO_TOOLKIT_DIR/setupvars.sh
++export LIBTORCH_ROOTDIR=$LIBTORCH_DIR
++
++cmake ../whisper.cpp/ -DWHISPER_OPENVINO=ON
++make -j 4
++cmake --install . --config Release --prefix ./installed
++WHISPER_BUILD_DIR=$PWD
++cd ..
++echo $PWD
++git clone https://github.com/intel/openvino-plugins-ai-audacity.git
++ls openvino-plugins-ai-audacity/
++echo $CURRENT_DIR
++cp -r openvino-plugins-ai-audacity/mod-openvino $CURRENT_DIR/modules
++cp $CURRENT_DIR/CMakeLists.txt.mod-openvino $CURRENT_DIR/modules/mod-openvino/CMakeLists.txt
++cp $CURRENT_DIR/CMakeLists.txt.modules $CURRENT_DIR/modules/CMakeLists.txt
++
++source $OPENVIVO_TOOLKIT_DIR/setupvars.sh
++export LIBTORCH_ROOTDIR=$LIBTORCH_DIR
++export WHISPERCPP_ROOTDIR=$WHISPER_BUILD_DIR/installed
++export LD_LIBRARY_PATH=${WHISPERCPP_ROOTDIR}/lib:$LD_LIBRARY_PATH
++
++
++echo $OPENVIVO_TOOLKIT_DIR
++echo $LIBTORCH_ROOTDIR
++echo $WHISPERCPP_ROOTDIR
++
++cd $CURRENT_DIR
