@@ -12,12 +12,14 @@ under the Unity desktop. Therefore drop the old workaround.
 Forwarded: https://github.com/audacity/audacity/pull/3701
 Signed-off-by: Benjamin Drung <benjamin.drung@canonical.com>
 ---
- src/audacity.desktop.in  | 2 +-
- 1 files changed, 1 insertion(+), 1 deletions(-)
+ src/audacity.desktop.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/src/audacity.desktop.in b/src/audacity.desktop.in
+index 022249b..34934bd 100644
 --- a/src/audacity.desktop.in
 +++ b/src/audacity.desktop.in
-@@ -61,7 +61,7 @@
+@@ -61,7 +61,7 @@ Categories=AudioVideo;Audio;AudioVideoEditing;
  
  Keywords=sound;music editing;voice channel;frequency;modulation;audio trim;clipping;noise reduction;multi track audio editor;edit;mixing;WAV;AIFF;FLAC;MP2;MP3;
  
