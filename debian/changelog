@@ -1,4 +1,4 @@
-audacity (3.7.1-0build1~ubuntu22.04) jammy; urgency=medium
+audacity (3.7.1-0build1~ubuntu22.04) jammy-testing; urgency=medium
 
   * New upstream release. See: https://github.com/audacity/audacity/releases
 
