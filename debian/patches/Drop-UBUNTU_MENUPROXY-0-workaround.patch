@@ -1,0 +1,28 @@
+From: Benjamin Drung <benjamin.drung@canonical.com>
+Date: Tue, 27 Sep 2022 13:53:55 +0200
+Subject: Drop UBUNTU_MENUPROXY=0 workaround
+
+wxWidgets 2.6 did not show menus correct on the global menu applet in
+Unity in 2010 ([Ubuntu bug #662007](https://launchpad.net/bugs/662077)).
+The environment variable `UBUNTU_MENUPROXY` was set as workaround.
+
+Audacity 3.2.0 with wxWidgets 3.2 on Ubuntu 22.10 (kinetic) works fine
+under the Unity desktop. Therefore drop the old workaround.
+
+Forwarded: https://github.com/audacity/audacity/pull/3701
+Signed-off-by: Benjamin Drung <benjamin.drung@canonical.com>
+---
+ src/audacity.desktop.in  | 2 +-
+ 1 files changed, 1 insertion(+), 1 deletions(-)
+
+--- a/src/audacity.desktop.in
++++ b/src/audacity.desktop.in
+@@ -61,7 +61,7 @@
+ 
+ Keywords=sound;music editing;voice channel;frequency;modulation;audio trim;clipping;noise reduction;multi track audio editor;edit;mixing;WAV;AIFF;FLAC;MP2;MP3;
+ 
+-Exec=env GDK_BACKEND=x11 UBUNTU_MENUPROXY=0 @AUDACITY_NAME@ %F
++Exec=@AUDACITY_NAME@ %F
+ StartupNotify=false
+ Terminal=false
+ MimeType=@MIMETYPES@;
