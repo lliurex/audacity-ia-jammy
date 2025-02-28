@@ -1,0 +1,21 @@
+From: cless <hectorgh@gmail.com>
+Date: Fri, 28 Feb 2025 18:45:54 +0100
+Subject: removing system call
+
+---
+ CMakeLists.txt.mod-openvino | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/CMakeLists.txt.mod-openvino b/CMakeLists.txt.mod-openvino
+index 80d70e6..c2c5c68 100644
+--- a/CMakeLists.txt.mod-openvino
++++ b/CMakeLists.txt.mod-openvino
+@@ -3,8 +3,6 @@
+ 
+ set( TARGET mod-openvino )
+ 
+-execute_process(COMMAND source /tmp/openvino/openvino_toolkit/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64/setupvars.sh)
+-
+ set(OpenVINO_DIR "/tmp/openvino/openvino_toolkit/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64/runtime/cmake")
+ set(PKG_CONFIG_PATH "/tmp/openvino/openvino_toolkit/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64/runtime/lib/intel64/pkgconfig")
+ set(TBB_DIR "/tmp/openvino/openvino_toolkit/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64/runtime/3rdparty/tbb/lib/cmake/TBB")

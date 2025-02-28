@@ -1,0 +1,566 @@
+From: cless <hectorgh@gmail.com>
+Date: Fri, 28 Feb 2025 16:46:11 +0100
+Subject: Merge branch 'debian/jammy' into patch-queue/debian/jammy
+
+---
+ CMakeLists.txt.mod-openvino                        | 102 ++++++++++
+ CMakeLists.txt.modules                             |  27 +++
+ debian/changelog                                   |   6 -
+ debian/patches/0003-adding-openvino-build.patch    | 225 ---------------------
+ .../patches/0007-Playback_cursor_workaround.patch  |   4 +-
+ .../0009-fix_build_with_portsmf_sys_library.patch  |  31 +++
+ .../Drop-UBUNTU_MENUPROXY-0-workaround.patch       |   8 +-
+ .../Fix-rpath-for-private-libraries-on-Linux.patch | 104 ++++++++++
+ .../Fix-setting-audacity_use_midi-off.patch        |  76 +++++++
+ ...when_targeting_ARM_CPUs_with_NEON_support.patch |  11 +
+ debian/patches/series                              |   1 -
+ openvino.sh                                        |  65 ++++++
+ src/audacity.desktop.in                            |   2 +-
+ 13 files changed, 421 insertions(+), 241 deletions(-)
+ create mode 100644 CMakeLists.txt.mod-openvino
+ create mode 100644 CMakeLists.txt.modules
+ delete mode 100644 debian/patches/0003-adding-openvino-build.patch
+ create mode 100644 debian/patches/0009-fix_build_with_portsmf_sys_library.patch
+ create mode 100644 debian/patches/Fix-rpath-for-private-libraries-on-Linux.patch
+ create mode 100644 debian/patches/Fix-setting-audacity_use_midi-off.patch
+ create mode 100644 debian/patches/Upstream-Fixes_the_GCC_armhf_build_when_targeting_ARM_CPUs_with_NEON_support.patch
+ create mode 100755 openvino.sh
+
+diff --cc debian/changelog
+index 819b05e,819b05e..52d2434
+--- a/debian/changelog
++++ b/debian/changelog
+@@@ -1,9 -1,9 +1,3 @@@
+--audacity (3.7.1-0build1~ubuntu22.04-lliurex23) jammy-testing; urgency=medium
+--
+--  * dirty openvino support
+--
+-- -- Hector Garcia Huerta <hectorgh@gmail.com>  Fri, 28 Feb 2025 15:44:25 +0100
+--
+  audacity (3.7.1-0build1~ubuntu22.04) jammy-testing; urgency=medium
+  
+    * New upstream release. See: https://github.com/audacity/audacity/releases
+diff --cc debian/patches/0003-adding-openvino-build.patch
+index fedcacf,fedcacf..0000000
+deleted file mode 100644,100644
+--- a/debian/patches/0003-adding-openvino-build.patch
++++ /dev/null
+@@@ -1,225 -1,225 +1,0 @@@
+--From: cless <hectorgh@gmail.com>
+--Date: Fri, 28 Feb 2025 15:43:11 +0100
+--Subject: adding openvino build
+--
+-----
+-- CMakeLists.txt.mod-openvino | 102 ++++++++++++++++++++++++++++++++++++++++++++
+-- CMakeLists.txt.modules      |  27 ++++++++++++
+-- openvino.sh                 |  65 ++++++++++++++++++++++++++++
+-- 3 files changed, 194 insertions(+)
+-- create mode 100644 CMakeLists.txt.mod-openvino
+-- create mode 100644 CMakeLists.txt.modules
+-- create mode 100755 openvino.sh
+--
+--diff --git a/CMakeLists.txt.mod-openvino b/CMakeLists.txt.mod-openvino
+--new file mode 100644
+--index 0000000..e158e84
+----- /dev/null
+--+++ b/CMakeLists.txt.mod-openvino
+--@@ -0,0 +1,102 @@
+--+# Copyright (C) 2023 Intel Corporation
+--+# SPDX-License-Identifier: GPL-3.0-only
+--+
+--+set( TARGET mod-openvino )
+--+
+--+find_package(OpenVINO REQUIRED COMPONENTS Runtime)
+--+
+--+message("ENV LIBTORCH_ROOTDIR = $ENV{LIBTORCH_ROOTDIR}")
+--+
+--+set(LIBTORCH_ROOTDIR "/tmp/openvino/libtorch/libtorch")
+--+
+--+set(CMAKE_PREFIX_PATH "${LIBTORCH_ROOTDIR}/share/cmake/Torch")
+--+
+--+find_package(Torch REQUIRED)
+--+message("torch libraries = ${TORCH_LIBRARIES}")
+--+
+--+set(WHISPERCPP_ROOTDIR "/tmp/openvino/whisper-build/installed")
+--+find_library(whisper NAMES whisper HINTS ${WHISPERCPP_ROOTDIR}/lib/static ${WHISPERCPP_ROOTDIR}/lib )
+--+include_directories(${WHISPERCPP_ROOTDIR}/include )
+--+message("whisper library = ${whisper}")
+--+
+--+#for musicgen
+--+#whether ITT is enabled or not, include ittutils.
+--+# This allows the project source files to unconditionally include <ittutils.h>
+--+# That header file will implement the preprocessor logic to *actually* enable ITT or not.
+--+include_directories( ittutils )
+--+
+--+find_package(OpenCL REQUIRED)
+--+
+--+add_subdirectory(musicgen)
+--+include_directories(musicgen)
+--+
+--+set( NOISE_SUPPRESSION_SOURCES
+--+      OVNoiseSuppression.cpp
+--+      OVNoiseSuppression.h
+--+      noise_suppression/noise_suppression_model.h
+--+      noise_suppression/noise_suppression_omz_model.h
+--+      noise_suppression/noise_suppression_omz_model.cpp
+--+      noise_suppression/noise_suppression_df_model.h
+--+      noise_suppression/noise_suppression_df_model.cpp
+--+      noise_suppression/deepfilternet/deepfilter.cpp
+--+      noise_suppression/deepfilternet/deepfilter.h
+--+      noise_suppression/deepfilternet/multiframe.h
+--+      noise_suppression/deepfilternet/multiframe.cpp
+--+      noise_suppression/deepfilternet/dfnet_model.h
+--+      noise_suppression/deepfilternet/dfnet_model.cpp
+--+)
+--+
+--+include_directories(noise_suppression)
+--+include_directories(noise_suppression/deepfilternet)
+--+
+--+set( AUDIO_SR_SOURCES 
+--+     OVAudioSR.cpp
+--+     OVAudioSR.h
+--+     audio_sr/audiosr_common.h
+--+     audio_sr/autoencoder.cpp
+--+     audio_sr/autoencoder.h
+--+     audio_sr/ddim_sampler.cpp
+--+     audio_sr/ddim_sampler.h
+--+     audio_sr/ddpm_latent_diffusion.cpp
+--+     audio_sr/ddpm_latent_diffusion.h
+--+     audio_sr/distributions.h
+--+     audio_sr/audio_sr.h
+--+     audio_sr/audio_sr.cpp
+--+)
+--+
+--+include_directories(audio_sr)
+--+
+--+set( SOURCES
+--+      ${NOISE_SUPPRESSION_SOURCES}
+--+      ${AUDIO_SR_SOURCES}
+--+      OVMusicSeparation.cpp
+--+      OVMusicSeparation.h
+--+      OVMusicGenerationLLM.cpp
+--+      OVMusicGenerationLLM.h
+--+      OVWhisperTranscription.cpp
+--+      OVWhisperTranscription.h
+--+      htdemucs.cpp
+--+      htdemucs.h
+--+      ${OV_MUSICGEN_SOURCES}
+--+      OpenVINO.cpp
+--+      OVStringUtils.h
+--+)
+--+
+--+set( LIBRARIES
+--+   PRIVATE
+--+      Audacity
+--+      openvino::runtime
+--+	   OpenCL::OpenCL
+--+      ${TORCH_LIBRARIES}
+--+      ${whisper}
+--+)
+--+
+--+audacity_module( ${TARGET} "${SOURCES}" "${LIBRARIES}" "" "" )
+--+
+--+if(MSVC)
+--+   target_compile_options(${TARGET} PRIVATE
+--+   /analyze /sdl /Gy /DYNAMICBASE /GS /D_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING /D_CRT_SECURE_NO_WARNINGS
+--+   )
+--+endif()
+--+
+--+
+--diff --git a/CMakeLists.txt.modules b/CMakeLists.txt.modules
+--new file mode 100644
+--index 0000000..730f6b5
+----- /dev/null
+--+++ b/CMakeLists.txt.modules
+--@@ -0,0 +1,27 @@
+--+#[[
+--+A directory of directories of module targets.  Sub-directories group modules in
+--+some common area of functionality, such as import/export, and each group becomes
+--+a cluster in the modules.dot file generated at configuration time.
+--+]]
+--+
+--+# Include the modules that we'll build
+--+
+--+# The list of module sub-folders is ordered so that each folder occurs after any
+--+# others that it depends on
+--+set( FOLDERS
+--+   etc
+--+   import-export
+--+   track-ui
+--+   scripting
+--+   nyquist
+--+   sharing
+--+   mod-openvino
+--+)
+--+
+--+foreach( FOLDER ${FOLDERS} )
+--+   add_subdirectory("${FOLDER}")
+--+endforeach()
+--+
+--+#propagate collected edges and subgraphs up to root CMakeLists.txt
+--+set( GRAPH_EDGES "${GRAPH_EDGES}" PARENT_SCOPE )
+--+set( GRAPH_SUBGRAPHS "${GRAPH_SUBGRAPHS}" PARENT_SCOPE )
+--diff --git a/openvino.sh b/openvino.sh
+--new file mode 100755
+--index 0000000..0e0162e
+----- /dev/null
+--+++ b/openvino.sh
+--@@ -0,0 +1,65 @@
+--+#!/bin/bash
+--+
+--+# sudo apt install python3-pip python3-pip-whl python3-setuptools python3-setuptools-whl python3-venv python3-wheel python3.12-venv ocl-icd-opencl-dev
+--+CURRENT_DIR=$PWD
+--+BASE_DIR="/tmp/openvino"
+--+rm -rf $BASE_DIR
+--+mkdir -p $BASE_DIR
+--+cd $BASE_DIR
+--+mkdir openvino_toolkit
+--+cd openvino_toolkit
+--+wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2024.6/linux/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64.tgz
+--+tar xvf l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64.tgz
+--+
+--+cd l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64
+--+OPENVIVO_TOOLKIT_DIR=$PWD
+--+
+--+wget https://storage.openvinotoolkit.org/repositories/openvino_tokenizers/packages/2024.6.0.0/openvino_tokenizers_ubuntu22_2024.6.0.0_x86_64.tar.gz
+--+tar xzvf openvino_tokenizers_ubuntu22_2024.6.0.0_x86_64.tar.gz
+--+
+--+cd ..
+--+cd ..
+--+
+--+mkdir libtorch
+--+cd libtorch
+--+wget https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.4.1%2Bcpu.zip
+--+unzip libtorch-cxx11-abi-shared-with-deps-2.4.1+cpu.zip
+--+LIBTORCH_DIR=$PWD/libtorch
+--+
+--+cd ..
+--+
+--+
+--+git clone https://github.com/ggerganov/whisper.cpp
+--+cd whisper.cpp
+--+git checkout v1.5.4
+--+cd ..
+--+mkdir whisper-build
+--+cd whisper-build
+--+
+--+source $OPENVIVO_TOOLKIT_DIR/setupvars.sh
+--+export LIBTORCH_ROOTDIR=$LIBTORCH_DIR
+--+
+--+cmake ../whisper.cpp/ -DWHISPER_OPENVINO=ON
+--+make -j 4
+--+cmake --install . --config Release --prefix ./installed
+--+WHISPER_BUILD_DIR=$PWD
+--+cd ..
+--+echo $PWD
+--+git clone https://github.com/intel/openvino-plugins-ai-audacity.git
+--+ls openvino-plugins-ai-audacity/
+--+echo $CURRENT_DIR
+--+cp -r openvino-plugins-ai-audacity/mod-openvino $CURRENT_DIR/modules
+--+cp $CURRENT_DIR/CMakeLists.txt.mod-openvino $CURRENT_DIR/modules/mod-openvino/CMakeLists.txt
+--+cp $CURRENT_DIR/CMakeLists.txt.modules $CURRENT_DIR/modules/CMakeLists.txt
+--+
+--+source $OPENVIVO_TOOLKIT_DIR/setupvars.sh
+--+export LIBTORCH_ROOTDIR=$LIBTORCH_DIR
+--+export WHISPERCPP_ROOTDIR=$WHISPER_BUILD_DIR/installed
+--+export LD_LIBRARY_PATH=${WHISPERCPP_ROOTDIR}/lib:$LD_LIBRARY_PATH
+--+
+--+
+--+echo $OPENVIVO_TOOLKIT_DIR
+--+echo $LIBTORCH_ROOTDIR
+--+echo $WHISPERCPP_ROOTDIR
+--+
+--+cd $CURRENT_DIR
+diff --cc debian/patches/0007-Playback_cursor_workaround.patch
+index 85a0cba,85a0cba..6054779
+--- a/debian/patches/0007-Playback_cursor_workaround.patch
++++ b/debian/patches/0007-Playback_cursor_workaround.patch
+@@@ -10,11 -10,11 +10,9 @@@ Forwarded: not-neede
+   src/audacity.desktop.in | 2 +-
+   1 file changed, 1 insertion(+), 1 deletion(-)
+  
+--diff --git a/src/audacity.desktop.in b/src/audacity.desktop.in
+--index 34934bd..2344edd 100644
+  --- a/src/audacity.desktop.in
+  +++ b/src/audacity.desktop.in
+--@@ -61,7 +61,7 @@ Categories=AudioVideo;Audio;AudioVideoEditing;
+++@@ -61,7 +61,7 @@
+   
+   Keywords=sound;music editing;voice channel;frequency;modulation;audio trim;clipping;noise reduction;multi track audio editor;edit;mixing;WAV;AIFF;FLAC;MP2;MP3;
+   
+diff --cc debian/patches/0009-fix_build_with_portsmf_sys_library.patch
+index 0000000,0000000..1e73319
+new file mode 100644
+--- /dev/null
++++ b/debian/patches/0009-fix_build_with_portsmf_sys_library.patch
+@@@ -1,0 -1,0 +1,31 @@@
+++From: Dennis Braun <d_braun@kabelmail.de>
+++Date: Sat, 10 Sep 2022 22:14:36 +0200
+++Subject: Fix build with portsmf system library
+++
+++Forwarded: not-yet
+++---
+++ lib-src/header-substitutes/allegro.h | 6 +++---
+++ 1 file changed, 3 insertions(+), 3 deletions(-)
+++
+++--- a/lib-src/header-substitutes/allegro.h
++++++ b/lib-src/header-substitutes/allegro.h
+++@@ -7,16 +7,16 @@
+++ 
+++ #pragma warning( push )
+++ #pragma warning( disable : 4100)
+++-#include "../portsmf/allegro.h"
++++#include <portSMF/allegro.h>
+++ #pragma warning( pop )
+++ 
+++ #elif defined(__linux__)
+++ 
+++ #include <cstring> // Allegro include fails if this header isn't included due to no memcpy
+++-#include "../portsmf/allegro.h"
++++#include <portSMF/allegro.h>
+++ 
+++ #else //_MSC_VER
+++ 
+++-#include "../portsmf/allegro.h"
++++#include <portSMF/allegro.h>
+++ 
+++ #endif //_MSC_VER
+diff --cc debian/patches/Drop-UBUNTU_MENUPROXY-0-workaround.patch
+index 796c49f,796c49f..062261e
+--- a/debian/patches/Drop-UBUNTU_MENUPROXY-0-workaround.patch
++++ b/debian/patches/Drop-UBUNTU_MENUPROXY-0-workaround.patch
+@@@ -12,14 -12,14 +12,12 @@@ under the Unity desktop. Therefore dro
+  Forwarded: https://github.com/audacity/audacity/pull/3701
+  Signed-off-by: Benjamin Drung <benjamin.drung@canonical.com>
+  ---
+-- src/audacity.desktop.in | 2 +-
+-- 1 file changed, 1 insertion(+), 1 deletion(-)
+++ src/audacity.desktop.in  | 2 +-
+++ 1 files changed, 1 insertion(+), 1 deletions(-)
+  
+--diff --git a/src/audacity.desktop.in b/src/audacity.desktop.in
+--index 022249b..34934bd 100644
+  --- a/src/audacity.desktop.in
+  +++ b/src/audacity.desktop.in
+--@@ -61,7 +61,7 @@ Categories=AudioVideo;Audio;AudioVideoEditing;
+++@@ -61,7 +61,7 @@
+   
+   Keywords=sound;music editing;voice channel;frequency;modulation;audio trim;clipping;noise reduction;multi track audio editor;edit;mixing;WAV;AIFF;FLAC;MP2;MP3;
+   
+diff --cc debian/patches/Fix-rpath-for-private-libraries-on-Linux.patch
+index 0000000,0000000..1b63a2f
+new file mode 100644
+--- /dev/null
++++ b/debian/patches/Fix-rpath-for-private-libraries-on-Linux.patch
+@@@ -1,0 -1,0 +1,104 @@@
+++From: Benjamin Drung <benjamin.drung@canonical.com>
+++Date: Thu, 22 Sep 2022 19:52:43 +0200
+++Subject: Fix rpath for private libraries on Linux
+++
+++Installing audacity on Linux will produce private libraries that have
+++`RUNPATH` set to the build directory instead of the installation
+++directory.
+++
+++The root cause is that the library directory is copied to the
+++installation directory without touching the libraries. The cmake wiki
+++says in RPATH handling caveats [1]: "Since install-side RPATH tweaking
+++is an operation that is done by target-specific installation handling,
+++any target that should have its install RPATH changed (e.g. to
+++`CMAKE_INSTALL_RPATH`) needs to end up in the installation via an
+++`install(TARGETS ...)` signature and not via directory-based copying."
+++
+++So replace `install(DIRECTORY ...)` by individual `install(TARGETS ...)`
+++for the libraries and modules. Then cmake will replace the `RUNPATH` to
+++`$ORIGIN/../lib/audacity`, which is still incorrect. Therefore set
+++`INSTALL_RPATH` explicitly.
+++
+++Fixes: https://github.com/audacity/audacity/issues/3289
+++Forwarded: https://github.com/audacity/audacity/pull/3671
+++[1] https://gitlab.kitware.com/cmake/community/-/wikis/doc/cmake/RPATH-handling#caveats
+++Signed-off-by: Benjamin Drung <benjamin.drung@canonical.com>
+++---
+++ CMakeLists.txt                                      |  1 +
+++ cmake-proxies/cmake-modules/AudacityFunctions.cmake | 18 ++++++++++++++++++
+++ modules/mod-script-pipe/CMakeLists.txt              |  1 +
+++ src/CMakeLists.txt                                  |  5 -----
+++ 4 files changed, 20 insertions(+), 5 deletions(-)
+++
+++--- a/CMakeLists.txt
++++++ b/CMakeLists.txt
+++@@ -418,6 +418,7 @@
+++ set( _LIBDIR "${CMAKE_INSTALL_LIBDIR}" )
+++ set( _DATADIR "${CMAKE_INSTALL_DATADIR}" )
+++ set( _PKGLIB "${_LIBDIR}/audacity" )
++++set( _PKGMODULE "${_PKGLIB}/modules" )
+++ set( _PKGDATA "${_DATADIR}/audacity/" )
+++ set( _MANDIR "${CMAKE_INSTALL_MANDIR}" )
+++ set( _MODDIR "${_PKGLIB}/modules" )
+++--- a/cmake-proxies/cmake-modules/AudacityFunctions.cmake
++++++ b/cmake-proxies/cmake-modules/AudacityFunctions.cmake
+++@@ -445,6 +445,17 @@
+++    endif()
+++ endfunction()
+++ 
++++# Call install(TARGETS...) only on Linux systems (i.e. exclude MacOS and Windows)
++++macro( install_target_linux target destination )
++++   if( NOT "${CMAKE_GENERATOR}" MATCHES "Xcode|Visual Studio*" AND NOT CMAKE_SYSTEM_NAME MATCHES "Darwin" )
++++      install( TARGETS "${target}" DESTINATION "${destination}" )
++++   endif()
++++endmacro()
++++
++++macro( install_audacity_module target )
++++   install_target_linux( "${target}" "${_PKGMODULE}" )
++++endmacro()
++++
+++ function( audacity_module_fn NAME SOURCES IMPORT_TARGETS
+++    ADDITIONAL_DEFINES ADDITIONAL_LIBRARIES LIBTYPE )
+++ 
+++@@ -488,6 +499,7 @@
+++          PROPERTIES
+++             PREFIX ""
+++             FOLDER "modules" # for IDE organization
++++            INSTALL_RPATH "$ORIGIN/.."
+++       )
+++ 
+++       if( NOT CMAKE_SYSTEM_NAME MATCHES "Windows|Darwin" )
+++@@ -570,6 +582,12 @@
+++    collect_edges( ${TARGET} "${IMPORT_TARGETS}" ${LIBTYPE} )
+++    set( GRAPH_EDGES "${GRAPH_EDGES}" PARENT_SCOPE )
+++ 
++++   # Note: Some modules set EXCLUDE_FROM_ALL afterwards to not be installed.
++++   # Therefore only install libraries, but not modules here.
++++   if( NOT REAL_LIBTYPE STREQUAL "MODULE" )
++++      install_target_linux( "${TARGET}" "${_PKGLIB}" )
++++   endif()
++++
+++    # collect unit test targets if they are present
+++    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests")
+++       add_subdirectory(tests)
+++--- a/modules/mod-script-pipe/CMakeLists.txt
++++++ b/modules/mod-script-pipe/CMakeLists.txt
+++@@ -15,3 +15,4 @@
+++ )
+++ audacity_module( mod-script-pipe "${SOURCES}" "Audacity"
+++    "${DEFINES}" "" )
++++install_audacity_module( mod-script-pipe )
+++--- a/src/CMakeLists.txt
++++++ b/src/CMakeLists.txt
+++@@ -1461,11 +1461,6 @@
+++                RUNTIME
+++                RESOURCE DESTINATION "${_PKGDATA}" )
+++ 
+++-      install( DIRECTORY "${_DEST}/${_LIBDIR}/"
+++-               DESTINATION "${_LIBDIR}"
+++-               USE_SOURCE_PERMISSIONS
+++-               FILES_MATCHING PATTERN "*.so*" )
+++-
+++       install( FILES "${_INTDIR}/audacity.desktop"
+++                DESTINATION "${_DATADIR}/applications" )
+++       install( FILES "${topdir}/LICENSE.txt" "${topdir}/README.md"
+diff --cc debian/patches/Fix-setting-audacity_use_midi-off.patch
+index 0000000,0000000..bf744ba
+new file mode 100644
+--- /dev/null
++++ b/debian/patches/Fix-setting-audacity_use_midi-off.patch
+@@@ -1,0 -1,0 +1,76 @@@
+++From: Benjamin Drung <benjamin.drung@canonical.com>
+++Date: Thu, 29 Sep 2022 11:05:41 +0200
+++Subject: Fix setting audacity_use_midi=off
+++
+++When disabling MIDI support, cmake will fail:
+++
+++```
+++$ cmake -B build -Daudacity_use_midi=off
+++[...]
+++CMake Error at cmake-proxies/CMakeLists.txt:314 (message):
+++  EXPERIMENTAL_MIDI_OUT requires USE_MIDI
+++```
+++
+++Disable `EXPERIMENTAL_MIDI_OUT` in case MIDI support was explicitly
+++disabled.
+++
+++Forwarded: https://github.com/audacity/audacity/pull/3717
+++Signed-off-by: Benjamin Drung <benjamin.drung@canonical.com>
+++---
+++ src/Experimental.cmake | 38 +++++++++++++++++++++-----------------
+++ 1 file changed, 21 insertions(+), 17 deletions(-)
+++
+++--- a/src/Experimental.cmake
++++++ b/src/Experimental.cmake
+++@@ -104,23 +104,6 @@
+++    # Paul Licameli (PRL) 29 Nov 2014
+++    #IMPROVED_SEEKING
+++ 
+++-   #MIDI_IN
+++-
+++-   # RBD, 1 Sep 2008
+++-   # Enables MIDI Output of NoteTrack (MIDI) data during playback
+++-   # USE_MIDI must be defined in order for MIDI_OUT to work
+++-   MIDI_OUT
+++-
+++-   # JKC, 17 Aug 2017
+++-   # Enables the MIDI note stretching feature, which currently
+++-   # a) Is broken on Linux (Bug 1646)
+++-   # b) Crashes with Sync-Lock (Bug 1719)
+++-   # c) Needs UI design review.
+++-   #MIDI_STRETCHING
+++-
+++-   # USE_MIDI must be defined in order for SCOREALIGN to work
+++-   #SCOREALIGN
+++-
+++    #Automatically tries to find an acceptable input volume
+++    #AUTOMATED_INPUT_LEVEL_ADJUSTMENT
+++ 
+++@@ -185,6 +168,27 @@
+++ 
+++ # Some more flags that depend on other configuration options
+++ 
++++if( NOT audacity_use_midi STREQUAL "off" )
++++   list( APPEND EXPERIMENTAL_OPTIONS_LIST
++++      #MIDI_IN
++++
++++      # RBD, 1 Sep 2008
++++      # Enables MIDI Output of NoteTrack (MIDI) data during playback
++++      # USE_MIDI must be defined in order for MIDI_OUT to work
++++      MIDI_OUT
++++
++++      # JKC, 17 Aug 2017
++++      # Enables the MIDI note stretching feature, which currently
++++      # a) Is broken on Linux (Bug 1646)
++++      # b) Crashes with Sync-Lock (Bug 1719)
++++      # c) Needs UI design review.
++++      #MIDI_STRETCHING
++++
++++      # USE_MIDI must be defined in order for SCOREALIGN to work
++++      #SCOREALIGN
++++   )
++++endif()
++++
+++ if( "SCRUBBING_SUPPORT" IN_LIST EXPERIMENTAL_OPTIONS_LIST )
+++    list( APPEND EXPERIMENTAL_OPTIONS_LIST SCRUBBING_SCROLL_WHEEL )
+++ endif()
+diff --cc debian/patches/Upstream-Fixes_the_GCC_armhf_build_when_targeting_ARM_CPUs_with_NEON_support.patch
+index 0000000,0000000..9960193
+new file mode 100644
+--- /dev/null
++++ b/debian/patches/Upstream-Fixes_the_GCC_armhf_build_when_targeting_ARM_CPUs_with_NEON_support.patch
+@@@ -1,0 -1,0 +1,11 @@@
+++--- a/libraries/lib-time-and-pitch/StaffPad/pffft/pfsimd_macros.h
++++++ b/libraries/lib-time-and-pitch/StaffPad/pffft/pfsimd_macros.h
+++@@ -122,7 +122,7 @@
+++ /*
+++   ARM NEON support macros
+++ */
+++-#elif !defined(PFFFT_SIMD_DISABLE) && (defined(__arm__) || defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64))
++++#elif !defined(PFFFT_SIMD_DISABLE) && (defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64))
+++ #  include <arm_neon.h>
+++ typedef float32x4_t v4sf;
+++ #  define SIMD_SZ 4
+diff --cc debian/patches/series
+index eea7696,eea7696..842bfbb
+--- a/debian/patches/series
++++ b/debian/patches/series
+@@@ -1,3 -1,3 +1,2 @@@
+  Drop-UBUNTU_MENUPROXY-0-workaround.patch
+  0007-Playback_cursor_workaround.patch
+--0003-adding-openvino-build.patch
