@@ -60,14 +60,12 @@ Vcs-Browser: https://salsa.debian.org/multimedia-team/audacity
 Vcs-Git: https://salsa.debian.org/multimedia-team/audacity.git
 Rules-Requires-Root: no
 
-Package: audacity-ai
+Package: audacity
 Architecture: any
-Depends: audacity-ai-data (= ${source:Version}),
+Depends: audacity-data (= ${source:Version}),
          ${misc:Depends},
          ${shlibs:Depends}
 Suggests: ladspa-plugin
-Conflicts: audacity
-Provides: audacity
 Description: fast, cross-platform audio editor
  Audacity is a multi-track audio editor for Linux/Unix, MacOS and
  Windows.  It is designed for easy recording, playing and editing of
@@ -77,13 +75,11 @@ Description: fast, cross-platform audio editor
  .
  Supported file formats include Ogg Vorbis, MP2, MP3, WAV, AIFF, and AU.
 
-Package: audacity-ai-data
+Package: audacity-data
 Architecture: all
 Multi-Arch: foreign
 Depends: ${misc:Depends}
-Recommends: audacity-ai
-Conflicts: audacity-data
-Provides: audacity-data
+Recommends: audacity
 Description: fast, cross-platform audio editor (data)
  Audacity is a multi-track audio editor for Linux/Unix, MacOS and
  Windows.  It is designed for easy recording, playing and editing of
