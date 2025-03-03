@@ -1,5 +1,2 @@
 Drop-UBUNTU_MENUPROXY-0-workaround.patch
 0007-Playback_cursor_workaround.patch
-0003-adding-openvino-build.patch
-0005-openvino-env.patch
-0006-removing-system-call.patch
