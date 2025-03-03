@@ -62,7 +62,9 @@ Build-Depends: cmake (>= 3.15),
 	       python3-venv,
 	       python3-wheel,
 	       ocl-icd-opencl-dev,
-	       wget
+	       wget,
+	       git,
+	       unzip
 Homepage: https://www.audacityteam.org/
 Vcs-Browser: https://salsa.debian.org/multimedia-team/audacity
 Vcs-Git: https://salsa.debian.org/multimedia-team/audacity.git
