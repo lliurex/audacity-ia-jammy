@@ -66,13 +66,12 @@ execute_after_dh_auto_install:
 	rm debian/tmp/usr/share/doc/audacity/LICENSE.txt
 
 override_dh_shlibdeps:
-	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
+	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info -l/tmp/openvino/openvino_toolkit/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64/runtime/lib/intel64/
 	cp /tmp/openvino/whisper-build/installed/lib/libwhisper.so debian/audacity/usr/lib/audacity
 	rsync -ax /tmp/openvino/libtorch/libtorch/lib/ debian/audacity/usr/lib/audacity
 	rsync -ax /tmp/openvino/openvino_toolkit/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64/runtime/3rdparty/tbb/lib/ debian/audacity/usr/lib/audacity
 	rsync -ax /tmp/openvino/openvino_toolkit/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64/runtime/lib/intel64/ debian/audacity/usr/lib/audacity
-
-
-override_dh_strip:
-	dh_strip
 	
+
+
+
