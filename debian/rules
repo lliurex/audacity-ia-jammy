@@ -4,7 +4,7 @@ include /usr/share/dpkg/architecture.mk
 include /usr/share/dpkg/pkg-info.mk
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
-export MAKEFLAGS = -j2
+export DEB_BUILD_OPTIONS = parallel=2
 
 CMAKE_FLAGS = \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
