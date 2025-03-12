@@ -76,7 +76,7 @@ Architecture: any
 Depends: audacity-ai-data (= ${source:Version}),
          ${misc:Depends},
          ${shlibs:Depends}
-Conflicts: audacity (<< 3)
+Conflicts: audacity (<< 3.7.1)
 Provides: audacity
 Suggests: ladspa-plugin
 Description: fast, cross-platform audio editor
@@ -92,7 +92,7 @@ Package: audacity-ai-data
 Architecture: all
 Multi-Arch: foreign
 Depends: ${misc:Depends}
-Conflicts: audacity-data (<< 3)
+Conflicts: audacity-data (<< 3.7.1)
 Provides: audacity-data
 Recommends: audacity-ai
 Description: fast, cross-platform audio editor (data)
